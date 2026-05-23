@@ -504,8 +504,10 @@ function dashRenderBuilding(groups, stats) {
 
     <!-- 🏢 المبنى -->
     <div class="building">
-      <!-- السقف الأوسط الكبير -->
-      <div class="bld-roof-center"></div>
+      <!-- السقف الأوسط الكبير — يحتوي اسم المعهد -->
+      <div class="bld-roof-center">
+        <div class="bld-roof-name">${esc(user.org_name || 'المؤسسة')}</div>
+      </div>
       <div class="bld-flag bld-flag-left"></div>
       <div class="bld-flag bld-flag-right"></div>
 
@@ -522,14 +524,6 @@ function dashRenderBuilding(groups, stats) {
         <!-- الجناح الأوسط: الأساتذة -->
         <div class="bld-wing bld-wing-center">
           <div class="bld-wing-body bld-wing-center-body">
-            <div class="bld-clock-wall">
-              <div class="bld-clock-face">
-                <div class="bld-clock-hand-h"></div>
-                <div class="bld-clock-hand-m"></div>
-                <div class="bld-clock-center"></div>
-              </div>
-            </div>
-            <div class="bld-org-name">${esc(user.org_name || 'المؤسسة')}</div>
             ${renderGroup(groups.teacher, 'الأساتذة', '🎓')}
             <div class="bld-door">
               <div class="bld-door-roof"></div>
