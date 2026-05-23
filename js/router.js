@@ -471,10 +471,17 @@ function dashRenderBuilding(groups, stats) {
   };
 
   const renderGroup = (list, title, icon) => {
+    // فلتر: فقط الموظفين داخل المبنى
+    const insideOnly = list.filter(e => e.state === 'inside');
     if (!list.length) return `<div class="bld-section-empty">${icon} لا يوجد ${title}</div>`;
+    if (!insideOnly.length) {
+      return `
+        <div class="bld-section-title">${icon} ${title} (0/${list.length})</div>
+        <div class="bld-section-empty" style="padding:24px 8px">⏳ لا أحد بعد</div>`;
+    }
     return `
-      <div class="bld-section-title">${icon} ${title} (${list.filter(x=>x.state==='inside').length}/${list.length})</div>
-      <div class="bld-section-grid">${list.map(e => renderEmp(e, e.state === 'inside')).join('')}</div>`;
+      <div class="bld-section-title">${icon} ${title} (${insideOnly.length}/${list.length})</div>
+      <div class="bld-section-grid">${insideOnly.map(e => renderEmp(e, true)).join('')}</div>`;
   };
 
   // الموظفين خارج المبنى (غائبين + خرجوا + إجازة)
