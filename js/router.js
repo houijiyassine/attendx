@@ -99,9 +99,15 @@ function navigate(viewName, params) {
   // استدعاء loader — مع تمرير الـ token
   Promise.resolve(route.loader({ ...params, _navToken: myToken })).catch(e => {
     if (!isCurrentNav(myToken)) return; // المستخدم تنقّل لـ view آخر
-    console.error('View load error:', e);
+    console.error('View load error:', viewName, e);
+    const errMsg = (e && e.message) || String(e || 'unknown error');
     document.getElementById('viewHost').innerHTML =
-      '<div class="page-content"><div style="text-align:center;padding:60px;color:var(--danger)">❌ خطأ في تحميل الصفحة</div></div>';
+      `<div class="page-content"><div style="text-align:center;padding:60px;color:var(--danger)">
+        <div style="font-size:48px;margin-bottom:12px">❌</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px">خطأ في تحميل الصفحة</div>
+        <div style="font-size:12px;color:var(--text-muted);font-family:monospace;max-width:600px;margin:0 auto;padding:12px;background:var(--surface2);border-radius:8px">${esc(errMsg)}</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:14px" onclick="location.reload()">🔄 إعادة تحميل</button>
+      </div></div>`;
   });
 }
 
@@ -460,7 +466,7 @@ function dashRenderBuilding(groups, stats) {
           ${!safePhoto ? initial : ''}
           <div class="bld-state-dot">${stateIcon}</div>
         </div>
-        <div class="bld-name">${esc((e.name||'').slice(0,10))}</div>
+        <div class="bld-name">${esc(e.name||'')}</div>
       </div>`;
   };
 
@@ -606,7 +612,7 @@ async function loadEmployeesView() {
   document.getElementById('empCount').textContent = `${_empAllEmps.length} موظف`;
   const depts = [...new Set(_empAllEmps.map(e => e.dept).filter(Boolean))];
   document.getElementById('empDeptFilter').innerHTML =
-    '<option value="">جميع الأقسام</option>' + depts.map(d => `<option>${d}</option>`).join('');
+    '<option value="">جميع الأقسام</option>' + depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
   empRender(_empAllEmps);
 }
 
