@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AttendX</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+/* SPA-specific styles */
+.spa-view { display: none; }
+.spa-view.active { display: block; }
+.work-days-picker { display:flex; flex-wrap:wrap; gap:6px; }
+.work-day-chip {
+  padding: 8px 12px; border-radius: 10px;
+  background: var(--surface3); border: 1px solid var(--border);
+  font-size: 13px; cursor: pointer; user-select: none;
+  transition: all 0.15s; font-family: 'Tajawal',sans-serif;
+  color: var(--text-muted);
+}
+.work-day-chip.active {
+  background: rgba(0,201,167,0.15); border-color: var(--accent);
+  color: var(--accent); font-weight: 600;
+}
+/* Timeline 24h - employee detail */
+.timeline-day { position: relative; height: 56px; margin: 14px 0;
+  background: var(--surface3); border-radius: 8px; overflow: hidden; }
+.timeline-bar-official { position: absolute; top: 12px; height: 22px;
+  background: linear-gradient(180deg, #1d4ed8 0%, #2563eb 100%);
+  border-radius: 4px; opacity: 0.55; }
+.timeline-bar-actual { position: absolute; top: 8px; height: 30px;
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  border-radius: 4px; box-shadow: 0 2px 8px rgba(16,185,129,0.4); }
+.timeline-tick { position: absolute; bottom: 2px; font-size: 9px;
+  color: var(--text-dim); transform: translateX(50%); pointer-events: none; }
+.timeline-tick.major { color: var(--text-muted); font-weight: 600; font-size: 10px; }
+.timeline-label { position: absolute; bottom: 18px; font-size: 11px;
+  font-weight: 600; padding: 2px 6px; border-radius: 4px;
+  background: rgba(0,0,0,0.5); color: white; white-space: nowrap;
+  pointer-events: none; z-index: 2; }
+.timeline-empty { position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center; color: var(--text-dim);
+  font-size: 12px; }
+.day-row { display: grid; grid-template-columns: 80px 1fr 200px;
+  gap: 12px; align-items: center; padding: 8px 0;
+  border-bottom: 1px solid var(--border); }
+.day-row:last-child { border-bottom: none; }
+.day-label { font-weight: 600; font-size: 13px; }
+.day-summary { text-align: left; font-size: 12px; color: var(--text-muted); line-height: 1.7; }
+.day-summary strong { color: var(--text); }
+.late-text { color: var(--warning); font-weight: 600; }
+.early-text { color: var(--accent); font-weight: 600; }
+.absent-day { opacity: 0.5; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px;
+  color: var(--text-muted); margin-bottom: 14px; }
+.legend-chip { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 14px; height: 10px; border-radius: 3px; }
+.photo-circle {
+  width: 96px; height: 96px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; font-weight: 700; color: white;
+  flex-shrink: 0; box-shadow: 0 8px 24px rgba(0,201,167,0.2);
+  background-size: cover; background-position: center;
+}
+.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 10px; }
+.info-cell { background: var(--surface3); border-radius: 8px; padding: 10px 12px; }
+.info-cell-label { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+.info-cell-val { font-weight: 600; font-size: 14px; }
+.period-tabs { display: inline-flex; background: var(--surface3); padding: 4px; border-radius: 11px; }
+.period-tab { padding: 8px 16px; border: none; background: none; color: var(--text-muted);
+  border-radius: 8px; cursor: pointer; font-family: 'Tajawal',sans-serif;
+  font-size: 13px; font-weight: 500; transition: all 0.15s; }
+.period-tab.active { background: var(--surface2); color: var(--text);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+/* Alerts list */
+.alert-row { display:flex; gap:14px; padding:14px 18px;
+  border-bottom:1px solid var(--border); align-items:flex-start; }
+.alert-row:last-child { border:none; }
+.alert-row.unread { background: rgba(0,201,167,0.04); }
+.alert-icon { width:40px; height:40px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; flex-shrink:0; }
+.alert-icon.info    { background: rgba(59,130,246,0.15); color:#60a5fa; }
+.alert-icon.warning { background: rgba(245,158,11,0.15); color:#fbbf24; }
+.alert-icon.danger  { background: rgba(239,68,68,0.15);  color:#f87171; }
+.alert-content { flex:1; min-width:0; }
+.alert-title { font-weight:600; margin-bottom:4px; }
+.alert-msg { font-size:13px; color:var(--text-muted); line-height:1.6; }
+.alert-time { font-size:11px; color:var(--text-dim); margin-top:6px; }
+.unread-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:14px; }
+@media print {
+  .sidebar, .header, .no-print { display: none !important; }
+  .main-content { margin: 0 !important; }
+  .page-content { padding: 12px !important; }
+}
+</style>
+</head>
+<body>
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <div class="main-content">
+    <header class="header" id="header">
+      <div>
+        <div class="header-title" id="hdrTitle">جارٍ التحميل...</div>
+        <div class="header-subtitle" id="hdrSub"></div>
+      </div>
+      <div id="hdrActions" class="flex gap-8"></div>
+    </header>
+
+    <!-- ============================================== -->
+    <!-- ALL VIEWS — تتم تعبئتها ديناميكياً             -->
+    <!-- ============================================== -->
+    <div id="viewHost">
+      <div class="page-content">
+        <div style="text-align:center;padding:80px;color:var(--text-muted)">
+          <div style="font-size:32px;margin-bottom:14px">⏳</div>
+          جارٍ التحميل...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL CONTAINER — modals shared across views    -->
+<!-- ============================================== -->
+<div id="modalHost"></div>
+
+<script src="js/config.js"></script>
+<script src="js/helpers.js"></script>
+<script src="js/router.js"></script>
+</body>
+</html>

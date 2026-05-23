@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AttendX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary:#0f4c81; --primary-light:#1a6eb5; --accent:#00c9a7; --accent-dark:#00a389;
+    --dark:#0a0f1e; --surface:#1a2235; --text:#f0f4ff; --text-muted:#8899bb;
+    --error:#ff4d6d; --border:rgba(255,255,255,0.08);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; font-family:'Tajawal',sans-serif; }
+  body { background:var(--dark); display:flex; align-items:center; justify-content:center;
+    min-height:100vh; overflow:hidden; position:relative; direction:rtl; }
+
+  /* Animated background */
+  .bg-canvas {
+    position:fixed; inset:0; z-index:0;
+    background:radial-gradient(ellipse at 20% 50%,rgba(15,76,129,0.4) 0%,transparent 60%),
+               radial-gradient(ellipse at 80% 20%,rgba(0,201,167,0.15) 0%,transparent 50%),
+               radial-gradient(ellipse at 60% 80%,rgba(15,76,129,0.2) 0%,transparent 50%),
+               var(--dark);
+  }
+  .bg-grid {
+    position:fixed; inset:0; z-index:0;
+    background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+  .orb {
+    position:fixed; border-radius:50%; filter:blur(80px);
+    animation:float 8s ease-in-out infinite; z-index:0;
+  }
+  .orb1 { width:400px; height:400px; background:rgba(15,76,129,0.3); top:-100px; right:-100px; animation-delay:0s; }
+  .orb2 { width:300px; height:300px; background:rgba(0,201,167,0.15); bottom:-50px; left:-50px; animation-delay:-4s; }
+  @keyframes float { 0%,100% { transform:translate(0,0) scale(1); } 50% { transform:translate(30px,-30px) scale(1.05); } }
+
+  /* Card */
+  .card {
+    position:relative; z-index:10; width:100%; max-width:440px; margin:20px;
+    background:rgba(26,34,53,0.85); border:1px solid var(--border); border-radius:24px;
+    padding:44px 38px; backdrop-filter:blur(20px);
+    box-shadow:0 32px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+    animation:slideUp 0.5s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
+
+  /* Logo */
+  .logo-wrap { text-align:center; margin-bottom:28px; }
+  .logo-icon {
+    width:64px; height:64px;
+    background:linear-gradient(135deg,var(--primary),var(--accent));
+    border-radius:18px; display:inline-flex; align-items:center; justify-content:center;
+    margin-bottom:14px; box-shadow:0 8px 32px rgba(0,201,167,0.3);
+    position:relative; overflow:hidden;
+  }
+  .logo-icon::after { content:''; position:absolute; inset:0;
+    background:linear-gradient(135deg,rgba(255,255,255,0.15),transparent); }
+  .logo-icon svg { width:32px; height:32px; fill:white; }
+  .logo-name { font-size:26px; font-weight:800; color:var(--text); letter-spacing:-0.5px; }
+  .logo-name span { color:var(--accent); }
+  .logo-sub { font-size:13px; color:var(--text-muted); margin-top:4px; }
+
+  /* View title (per-view) */
+  .view-title { font-size:17px; font-weight:700; color:var(--text); text-align:center; margin-bottom:6px; }
+  .view-sub { font-size:13px; color:var(--text-muted); text-align:center; margin-bottom:24px; line-height:1.7; }
+
+  /* Form */
+  .form-group { margin-bottom:16px; }
+  .form-label { display:block; font-size:13px; font-weight:500; color:var(--text-muted); margin-bottom:7px; }
+  .form-input {
+    width:100%; padding:13px 15px;
+    background:rgba(255,255,255,0.05); border:1px solid var(--border);
+    border-radius:12px; color:var(--text); font-size:15px;
+    font-family:'Tajawal',sans-serif; transition:all 0.2s; outline:none;
+  }
+  .form-input:focus { border-color:var(--accent); background:rgba(0,201,167,0.05);
+    box-shadow:0 0 0 3px rgba(0,201,167,0.1); }
+  .form-input::placeholder { color:rgba(255,255,255,0.2); }
+  .form-input:disabled { opacity:0.6; cursor:not-allowed; }
+  .input-wrap { position:relative; }
+  .input-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-muted); }
+  .input-wrap .form-input { padding-left:44px; }
+
+  /* OTP big input */
+  .otp-input { letter-spacing:14px; text-align:center; font-size:24px; font-weight:700; }
+
+  /* Buttons */
+  .btn {
+    width:100%; padding:14px;
+    background:linear-gradient(135deg,var(--primary),var(--primary-light));
+    color:white; border:none; border-radius:12px;
+    font-size:15px; font-weight:700; font-family:'Tajawal',sans-serif;
+    cursor:pointer; transition:all 0.2s; margin-top:8px;
+    position:relative; overflow:hidden;
+  }
+  .btn:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(15,76,129,0.5); }
+  .btn:active { transform:translateY(0); }
+  .btn:disabled { opacity:0.6; pointer-events:none; }
+  .btn.loading { pointer-events:none; opacity:0.85; }
+  .btn .spinner {
+    display:none; width:20px; height:20px;
+    border:2px solid rgba(255,255,255,0.3); border-top-color:white;
+    border-radius:50%; animation:spin 0.7s linear infinite; margin:0 auto;
+  }
+  .btn.loading .btn-text { display:none; }
+  .btn.loading .spinner { display:block; }
+  .btn-accent { background:linear-gradient(135deg,var(--accent-dark),var(--accent)); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Messages */
+  .msg { padding:11px 14px; border-radius:10px; font-size:13px; margin-bottom:16px;
+    display:none; align-items:center; gap:8px; }
+  .msg.show { display:flex; }
+  .msg.err { background:rgba(255,77,109,0.12); border:1px solid rgba(255,77,109,0.3); color:#ff8099; }
+  .msg.ok  { background:rgba(0,201,167,0.12); border:1px solid rgba(0,201,167,0.3); color:#34d399; }
+
+  /* Demo hint */
+  .demo-hint {
+    background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3);
+    color:#fbbf24; padding:10px 14px; border-radius:10px;
+    font-size:13px; margin-bottom:16px; text-align:center;
+  }
+
+  /* Footer / nav */
+  .footer-row { text-align:center; margin-top:18px; padding-top:16px;
+    border-top:1px solid var(--border); font-size:13px; color:var(--text-muted); }
+  .footer-row a, .nav-link { color:var(--accent); text-decoration:none; font-weight:600; cursor:pointer; }
+  .footer-text { text-align:center; margin-top:18px; font-size:12px; color:var(--text-muted); }
+  .footer-text span { color:var(--accent); font-weight:600; }
+
+  /* Remember row */
+  .remember-row { display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:18px; font-size:13px; }
+  .remember-row label { display:flex; align-items:center; gap:7px;
+    color:var(--text-muted); cursor:pointer; user-select:none; }
+  .remember-row input { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+
+  /* View switching */
+  .view { display:none; }
+  .view.active { display:block; }
+</style>
+</head>
+<body>
+<div class="bg-canvas"></div>
+<div class="bg-grid"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<div class="card">
+  <!-- Shared logo header -->
+  <div class="logo-wrap">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+    </div>
+    <div class="logo-name">Attend<span>X</span></div>
+    <div class="logo-sub" id="logoSub">نظام إدارة الحضور والانصراف</div>
+  </div>
+
+  <!-- Shared message area -->
+  <div class="msg" id="msg">
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    <span id="msgText"></span>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- VIEW: LOGIN                                                  -->
+  <!-- ============================================================ -->
+  <div class="view active" id="viewLogin">
+    <form id="formLogin">
+      <div class="form-group">
+        <label class="form-label">رقم الهاتف</label>
+        <div class="input-wrap">
+          <span class="input-icon">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .7-.2 1l-2.3 2.2z"/></svg>
+          </span>
+          <input type="text" inputmode="tel" class="form-input" id="loginUser" placeholder="أدخل رقم هاتفك" autocomplete="username" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">كلمة المرور</label>
+        <div class="input-wrap">
+          <span class="input-icon">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.8-2.2-5-5-5S7 3.2 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.7 1.4-3.1 3.1-3.1 1.7 0 3.1 1.4 3.1 3.1v2z"/></svg>
+          </span>
+          <input type="password" class="form-input" id="loginPass" placeholder="أدخل كلمة المرور" autocomplete="current-password" required>
+        </div>
+      </div>
+      <div class="remember-row">
+        <label>
+          <input type="checkbox" id="rememberMe">
+          تذكّرني
+        </label>
+        <a class="nav-link" onclick="showView('forgot')">نسيت كلمة المرور؟</a>
+      </div>
+      <button type="submit" class="btn" id="loginBtn">
+        <span class="btn-text">تسجيل الدخول</span>
+        <div class="spinner"></div>
+      </button>
+    </form>
+    <div class="footer-row">
+      مدير جديد؟ <a class="nav-link" onclick="showView('signup')">إنشاء حساب مدير</a>
+    </div>
+    <div class="footer-text">AttendX v4.4 — <span>نظام احترافي متكامل</span></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- VIEW: SIGNUP (phone check)                                   -->
+  <!-- ============================================================ -->
+  <div class="view" id="viewSignup">
+    <div class="view-title">إنشاء حساب مدير مؤسسة</div>
+    <div class="view-sub">أدخل رقم هاتفك. يجب أن يكون مسجّلاً مسبقاً من قِبل مدير النظام.</div>
+
+    <form id="formSignup">
+      <div class="form-group">
+        <label class="form-label">رقم الهاتف</label>
+        <input type="text" inputmode="tel" class="form-input" id="signupPhone" placeholder="رقم هاتفك المسجّل" required>
+      </div>
+      <button type="submit" class="btn" id="signupBtn">
+        <span class="btn-text">متابعة</span>
+        <div class="spinner"></div>
+      </button>
+    </form>
+    <div class="footer-row">
+      <a class="nav-link" onclick="showView('login')">← العودة لتسجيل الدخول</a>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- VIEW: ACTIVATE — step1 (data) + step2 (otp)                  -->
+  <!-- ============================================================ -->
+  <div class="view" id="viewActivate">
+    <!-- Activate step 1: collect data -->
+    <div id="activateStep1">
+      <div class="view-title">أكمل بيانات حسابك</div>
+      <div class="view-sub">أدخل معلوماتك لإنشاء حساب المدير</div>
+
+      <div class="form-group">
+        <label class="form-label">رقم الهاتف</label>
+        <input type="text" class="form-input" id="actPhone" disabled>
+      </div>
+      <div class="form-group">
+        <label class="form-label">الاسم الكامل *</label>
+        <input type="text" class="form-input" id="actName" placeholder="اسمك الكامل">
+      </div>
+      <div class="form-group">
+        <label class="form-label">البريد الإلكتروني *</label>
+        <input type="email" class="form-input" id="actEmail" placeholder="example@email.com" dir="ltr" style="text-align:right">
+      </div>
+      <div class="form-group">
+        <label class="form-label">كلمة المرور *</label>
+        <input type="password" class="form-input" id="actPass" placeholder="6 أحرف أو أكثر">
+      </div>
+      <div class="form-group">
+        <label class="form-label">تأكيد كلمة المرور *</label>
+        <input type="password" class="form-input" id="actPass2" placeholder="أعد كتابة كلمة المرور">
+      </div>
+      <button class="btn" id="actSendBtn" onclick="actSendCode()">إرسال رمز التحقق</button>
+    </div>
+
+    <!-- Activate step 2: enter OTP -->
+    <div id="activateStep2" style="display:none">
+      <div class="view-title">رمز التحقق</div>
+      <div class="view-sub">أدخل الرمز المُرسل إلى بريدك الإلكتروني</div>
+      <div class="demo-hint" id="actDemoHint">وضع تجريبي: استخدم الرمز <strong>0000</strong></div>
+      <div class="form-group">
+        <input type="text" inputmode="numeric" maxlength="6" class="form-input otp-input" id="actOtp" placeholder="••••">
+      </div>
+      <button class="btn btn-accent" id="actVerifyBtn" onclick="actVerify()">تأكيد وتفعيل الحساب</button>
+      <div class="footer-row">
+        <a class="nav-link" onclick="actBackToStep1()">← تعديل البيانات</a>
+      </div>
+    </div>
+
+    <div class="footer-row" id="activateFooter">
+      <a class="nav-link" onclick="showView('login')">← العودة لتسجيل الدخول</a>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- VIEW: FORGOT — step1 (phone+email) + step2 (otp+newpass)     -->
+  <!-- ============================================================ -->
+  <div class="view" id="viewForgot">
+    <!-- Forgot step 1 -->
+    <div id="forgotStep1">
+      <div class="view-title">نسيت كلمة المرور؟</div>
+      <div class="view-sub">أدخل رقم هاتفك وبريدك لإرسال رمز التحقق</div>
+
+      <div class="form-group">
+        <label class="form-label">رقم الهاتف</label>
+        <input type="text" inputmode="tel" class="form-input" id="fgPhone" placeholder="رقم هاتفك المسجّل">
+      </div>
+      <div class="form-group">
+        <label class="form-label">البريد الإلكتروني</label>
+        <input type="email" class="form-input" id="fgEmail" placeholder="بريدك المسجّل" dir="ltr" style="text-align:right">
+      </div>
+      <button class="btn" id="fgSendBtn" onclick="fgSendCode()">إرسال رمز التحقق</button>
+    </div>
+
+    <!-- Forgot step 2 -->
+    <div id="forgotStep2" style="display:none">
+      <div class="view-title">إعادة تعيين كلمة المرور</div>
+      <div class="view-sub">أدخل الرمز وكلمة المرور الجديدة</div>
+      <div class="demo-hint" id="fgDemoHint">وضع تجريبي: استخدم الرمز <strong>0000</strong></div>
+
+      <div class="form-group">
+        <label class="form-label">رمز التحقق</label>
+        <input type="text" inputmode="numeric" maxlength="6" class="form-input otp-input" id="fgOtp" placeholder="••••">
+      </div>
+      <div class="form-group">
+        <label class="form-label">كلمة المرور الجديدة *</label>
+        <input type="password" class="form-input" id="fgPass" placeholder="6 أحرف أو أكثر">
+      </div>
+      <div class="form-group">
+        <label class="form-label">تأكيد كلمة المرور *</label>
+        <input type="password" class="form-input" id="fgPass2" placeholder="أعد كتابة كلمة المرور">
+      </div>
+      <button class="btn btn-accent" id="fgResetBtn" onclick="fgDoReset()">حفظ كلمة المرور الجديدة</button>
+      <div class="footer-row">
+        <a class="nav-link" onclick="fgBackToStep1()">← رجوع</a>
+      </div>
+    </div>
+
+    <div class="footer-row" id="forgotFooter">
+      <a class="nav-link" onclick="showView('login')">← العودة لتسجيل الدخول</a>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script>
+// ============================================================================
+// AttendX — Auth (merged): login + signup + activate + forgot
+// ============================================================================
+const SUPABASE_URL = window.SUPABASE_URL;
+const SUPABASE_KEY = window.SUPABASE_KEY;
+
+if (!SUPABASE_URL || SUPABASE_URL.includes('PASTE') || !SUPABASE_KEY || SUPABASE_KEY.includes('PASTE')) {
+  alert('⚠️ يرجى تعديل ملف js/config.js وإضافة مفاتيح Supabase أولاً');
+}
+
+// ---------- Helpers ----------
+function showMsg(text, type) {
+  const m = document.getElementById('msg');
+  document.getElementById('msgText').textContent = text;
+  m.className = 'msg show ' + (type === 'ok' ? 'ok' : 'err');
+}
+function hideMsg() { document.getElementById('msg').className = 'msg'; }
+
+function showView(name) {
+  hideMsg();
+  ['Login','Signup','Activate','Forgot'].forEach(v => {
+    document.getElementById('view' + v).classList.toggle('active', v.toLowerCase() === name);
+  });
+  // reset multi-step views to step1
+  document.getElementById('activateStep1').style.display = '';
+  document.getElementById('activateStep2').style.display = 'none';
+  document.getElementById('forgotStep1').style.display = '';
+  document.getElementById('forgotStep2').style.display = 'none';
+  // update URL hash (so refresh stays on view)
+  if (history.replaceState) history.replaceState(null, '', '#' + name);
+}
+
+// Open initial view from URL hash (?phone=… يفعّل activate)
+function initFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const phone = params.get('phone');
+  const hash = location.hash.replace('#','').toLowerCase();
+  if (phone) {
+    document.getElementById('actPhone').value = phone;
+    showView('activate');
+    return;
+  }
+  if (['login','signup','activate','forgot'].includes(hash)) {
+    showView(hash);
+  }
+}
+
+// Already logged in? skip to app.
+(function checkSession(){
+  const s = localStorage.getItem('attendx_user') || sessionStorage.getItem('attendx_user');
+  if (!s) return;
+  try {
+    const user = JSON.parse(s);
+    if (!user || !user.role) throw new Error('invalid session');
+    if (user.role === 'superadmin') location.href = 'shell.html#superadmin';
+    else location.href = 'shell.html#dashboard';
+  } catch(e) {
+    // جلسة فاسدة — امسحها بهدوء
+    localStorage.removeItem('attendx_user');
+    sessionStorage.removeItem('attendx_user');
+  }
+})();
+
+// ============================================================
+// LOGIN
+// ============================================================
+document.getElementById('formLogin').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideMsg();
+  const btn = document.getElementById('loginBtn');
+  btn.classList.add('loading');
+
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  const remember = document.getElementById('rememberMe').checked;
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/login_user`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey':SUPABASE_KEY,
+                 'Authorization':`Bearer ${SUPABASE_KEY}` },
+      body: JSON.stringify({ p_username: username, p_password: password, p_role: null })
+    });
+    const data = await res.json();
+
+    if (data && data.success) {
+      const obj = JSON.stringify({
+        id: data.user_id, name: data.name, username: data.username,
+        email: data.email, role: data.role, org_id: data.org_id,
+        org_name: data.org_name, token: data.token,
+        language: data.language || 'ar',
+        theme:    data.theme    || 'dark'
+      });
+      localStorage.removeItem('attendx_user');
+      sessionStorage.removeItem('attendx_user');
+      if (remember) localStorage.setItem('attendx_user', obj);
+      else          sessionStorage.setItem('attendx_user', obj);
+
+      // طبّق اللغة والمظهر المحفوظ في الحساب
+      if (data.language) localStorage.setItem('attendx_lang', data.language);
+      if (data.theme)    localStorage.setItem('attendx_theme', data.theme);
+
+      if (data.role === 'superadmin') location.href = 'shell.html#superadmin';
+      else location.href = 'shell.html#dashboard';
+
+    } else if (data && data.need_activation) {
+      // مدير غير مفعّل → انتقل لـ activate داخل نفس الصفحة
+      document.getElementById('actPhone').value = username;
+      showView('activate');
+    } else {
+      showMsg(data?.message || 'بيانات الدخول غير صحيحة', 'err');
+    }
+  } catch (err) {
+    showMsg('خطأ في الاتصال بالخادم', 'err');
+  } finally {
+    btn.classList.remove('loading');
+  }
+});
+
+// ============================================================
+// SIGNUP (phone check → activate)
+// ============================================================
+document.getElementById('formSignup').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideMsg();
+  const phone = document.getElementById('signupPhone').value.trim();
+  if (!phone) { showMsg('أدخل رقم هاتفك', 'err'); return; }
+
+  const btn = document.getElementById('signupBtn');
+  btn.classList.add('loading');
+
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/signup_manager`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_KEY,
+                'Authorization':`Bearer ${SUPABASE_KEY}` },
+      body: JSON.stringify({ p_phone: phone })
+    });
+    const d = await r.json();
+    if (d && d.success) {
+      document.getElementById('actPhone').value = phone;
+      showView('activate');
+    } else if (d && d.already_activated) {
+      showMsg(d.message || 'الحساب مفعّل — سجّل الدخول مباشرة', 'ok');
+      setTimeout(() => showView('login'), 1500);
+    } else {
+      showMsg(d?.message || 'لم نتعرّف على الرقم', 'err');
+    }
+  } catch (e) {
+    showMsg('خطأ في الاتصال بالخادم', 'err');
+  } finally {
+    btn.classList.remove('loading');
+  }
+});
+
+// ============================================================
+// ACTIVATE
+// ============================================================
+let actSavedData = null;
+
+async function actSendCode() {
+  hideMsg();
+  const phone = document.getElementById('actPhone').value.trim();
+  const name  = document.getElementById('actName').value.trim();
+  const email = document.getElementById('actEmail').value.trim();
+  const pass  = document.getElementById('actPass').value;
+  const pass2 = document.getElementById('actPass2').value;
+
+  if (!phone) { showMsg('ابدأ من شاشة إنشاء حساب مدير', 'err'); return; }
+  if (!name)  { showMsg('أدخل اسمك الكامل', 'err'); return; }
+  if (!email || !email.includes('@')) { showMsg('أدخل بريداً إلكترونياً صحيحاً', 'err'); return; }
+  if (pass.length < 6) { showMsg('كلمة المرور 6 أحرف على الأقل', 'err'); return; }
+  if (pass !== pass2)  { showMsg('كلمتا المرور غير متطابقتين', 'err'); return; }
+
+  actSavedData = { name, email, pass };
+  const btn = document.getElementById('actSendBtn');
+  btn.disabled = true; btn.textContent = 'جارٍ الإرسال...';
+
+  try {
+    const r = await fetch('/api/otp/send', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, email, purpose:'activate' })
+    });
+    const d = await r.json();
+    if (d.success) {
+      document.getElementById('activateStep1').style.display = 'none';
+      document.getElementById('activateStep2').style.display = '';
+      if (!d.demo) document.getElementById('actDemoHint').style.display = 'none';
+      showMsg(d.message || 'تم إرسال الرمز', 'ok');
+    } else {
+      showMsg(d.message || 'تعذّر إرسال الرمز', 'err');
+    }
+  } catch(e) { showMsg('خطأ في الاتصال بالخادم', 'err'); }
+  finally { btn.disabled = false; btn.textContent = 'إرسال رمز التحقق'; }
+}
+
+function actBackToStep1() {
+  hideMsg();
+  document.getElementById('activateStep1').style.display = '';
+  document.getElementById('activateStep2').style.display = 'none';
+}
+
+async function actVerify() {
+  hideMsg();
+  const phone = document.getElementById('actPhone').value.trim();
+  const code  = document.getElementById('actOtp').value.trim();
+  if (!code) { showMsg('أدخل الرمز', 'err'); return; }
+  if (!actSavedData) { showMsg('أعد إدخال البيانات', 'err'); actBackToStep1(); return; }
+
+  const btn = document.getElementById('actVerifyBtn');
+  btn.disabled = true; btn.textContent = 'جارٍ التحقق...';
+
+  try {
+    const vr = await fetch('/api/otp/verify', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, code, purpose:'activate' })
+    });
+    const vd = await vr.json();
+    if (!vd.success) { showMsg(vd.message || 'الرمز غير صحيح', 'err'); return; }
+
+    const ar = await fetch(`${SUPABASE_URL}/rest/v1/rpc/activate_manager`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'apikey':SUPABASE_KEY,
+               'Authorization':`Bearer ${SUPABASE_KEY}`},
+      body: JSON.stringify({
+        p_phone: phone, p_name: actSavedData.name,
+        p_email: actSavedData.email, p_password: actSavedData.pass
+      })
+    });
+    const ad = await ar.json();
+    if (ad && ad.success) {
+      showMsg('تم تفعيل حسابك بنجاح! جارٍ التحويل...', 'ok');
+      setTimeout(() => showView('login'), 1800);
+    } else {
+      showMsg(ad?.message || 'تعذّر تفعيل الحساب', 'err');
+    }
+  } catch(e) { showMsg('خطأ في الاتصال بالخادم', 'err'); }
+  finally { btn.disabled = false; btn.textContent = 'تأكيد وتفعيل الحساب'; }
+}
+
+// ============================================================
+// FORGOT PASSWORD
+// ============================================================
+let fgPhoneCached = '';
+
+async function fgSendCode() {
+  hideMsg();
+  const phone = document.getElementById('fgPhone').value.trim();
+  const email = document.getElementById('fgEmail').value.trim();
+  if (!phone) { showMsg('أدخل رقم هاتفك', 'err'); return; }
+  if (!email || !email.includes('@')) { showMsg('أدخل بريدك الإلكتروني', 'err'); return; }
+
+  fgPhoneCached = phone;
+  const btn = document.getElementById('fgSendBtn');
+  btn.disabled = true; btn.textContent = 'جارٍ الإرسال...';
+
+  try {
+    const r = await fetch('/api/otp/send', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, email, purpose:'reset' })
+    });
+    const d = await r.json();
+    if (d.success) {
+      document.getElementById('forgotStep1').style.display = 'none';
+      document.getElementById('forgotStep2').style.display = '';
+      if (!d.demo) document.getElementById('fgDemoHint').style.display = 'none';
+      showMsg(d.message || 'تم إرسال الرمز', 'ok');
+    } else {
+      showMsg(d.message || 'تعذّر إرسال الرمز', 'err');
+    }
+  } catch(e) { showMsg('خطأ في الاتصال بالخادم', 'err'); }
+  finally { btn.disabled = false; btn.textContent = 'إرسال رمز التحقق'; }
+}
+
+function fgBackToStep1() {
+  hideMsg();
+  document.getElementById('forgotStep1').style.display = '';
+  document.getElementById('forgotStep2').style.display = 'none';
+}
+
+async function fgDoReset() {
+  hideMsg();
+  const code  = document.getElementById('fgOtp').value.trim();
+  const pass  = document.getElementById('fgPass').value;
+  const pass2 = document.getElementById('fgPass2').value;
+
+  if (!code) { showMsg('أدخل الرمز', 'err'); return; }
+  if (pass.length < 6) { showMsg('كلمة المرور 6 أحرف على الأقل', 'err'); return; }
+  if (pass !== pass2)  { showMsg('كلمتا المرور غير متطابقتين', 'err'); return; }
+
+  const btn = document.getElementById('fgResetBtn');
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ...';
+
+  try {
+    const vr = await fetch('/api/otp/verify', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ phone: fgPhoneCached, code, purpose:'reset' })
+    });
+    const vd = await vr.json();
+    if (!vd.success) { showMsg(vd.message || 'الرمز غير صحيح', 'err'); return; }
+
+    const rr = await fetch(`${SUPABASE_URL}/rest/v1/rpc/reset_password`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'apikey':SUPABASE_KEY,
+               'Authorization':`Bearer ${SUPABASE_KEY}`},
+      body: JSON.stringify({ p_phone: fgPhoneCached, p_password: pass })
+    });
+    const rd = await rr.json();
+    if (rd && rd.success) {
+      showMsg('تم تغيير كلمة المرور! جارٍ التحويل...', 'ok');
+      setTimeout(() => showView('login'), 1800);
+    } else {
+      showMsg(rd?.message || 'تعذّر تغيير كلمة المرور', 'err');
+    }
+  } catch(e) { showMsg('خطأ في الاتصال بالخادم', 'err'); }
+  finally { btn.disabled = false; btn.textContent = 'حفظ كلمة المرور الجديدة'; }
+}
+
+// ---------- Init ----------
+initFromUrl();
+</script>
+</body>
+</html>

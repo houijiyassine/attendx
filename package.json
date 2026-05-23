@@ -1,0 +1,18 @@
+{
+  "name": "attendx",
+  "version": "4.5.0",
+  "description": "AttendX v4.5 — Comprehensive: leaves, holidays, alerts, audit, i18n, themes",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "express": "^4.19.2",
+    "aedes": "0.51.3"
+  }
+}
