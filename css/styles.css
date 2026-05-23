@@ -480,15 +480,28 @@ html[data-theme="light"] .building-wrap {
 /* السقف المركزي الأحمر (المرتفع) */
 .bld-roof-center {
   background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
-  height: 36px;
+  min-height: 56px;
   margin: 0 auto -2px;
-  width: 38%;
+  width: 42%;
   border-radius: 6px 6px 0 0;
-  border: 2px solid #1a1a1a;
+  border: 3px solid #1a1a1a;
   border-bottom: none;
   position: relative;
   z-index: 3;
-  box-shadow: inset 0 -4px 8px rgba(0,0,0,0.1);
+  box-shadow: inset 0 -4px 8px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+}
+.bld-roof-name {
+  color: white;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.5px;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.35);
+  line-height: 1.2;
 }
 
 /* أعلام على السقفين الجانبيين */
@@ -589,66 +602,7 @@ html[data-theme="light"] .bld-wing {
 .bld-wing-left::after { right: 8px; }
 .bld-wing-right::after { left: 8px; }
 
-/* اسم المؤسسة */
-.bld-org-name {
-  text-align: center;
-  font-weight: 800;
-  font-size: 22px;
-  color: #1a1a1a;
-  margin-bottom: 6px;
-  letter-spacing: 0.5px;
-  text-shadow: 0 1px 2px rgba(255,255,255,0.5);
-}
-.bld-org-sub {
-  text-align: center;
-  font-size: 12px;
-  color: rgba(0,0,0,0.55);
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-
-/* الساعة الكبيرة على الواجهة */
-.bld-clock-wall {
-  display: flex; justify-content: center; margin-bottom: 8px;
-}
-.bld-clock-face {
-  width: 90px; height: 90px; border-radius: 50%;
-  background: radial-gradient(circle, #ffffff 0%, #f5f5f5 100%);
-  border: 5px solid #1a1a1a;
-  position: relative;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 -4px 8px rgba(0,0,0,0.06);
-}
-.bld-clock-face::before {
-  content: '';
-  position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-  width: 3px; height: 6px; background: #1a1a1a;
-}
-.bld-clock-face::after {
-  content: '';
-  position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
-  width: 3px; height: 6px; background: #1a1a1a;
-}
-.bld-clock-hand-h, .bld-clock-hand-m {
-  position: absolute; left: 50%; top: 50%;
-  background: #1a1a1a;
-  transform-origin: bottom center;
-  border-radius: 2px;
-}
-.bld-clock-hand-h {
-  width: 4px; height: 24px;
-  transform: translate(-50%, -100%) rotate(45deg);
-}
-.bld-clock-hand-m {
-  width: 3px; height: 34px;
-  transform: translate(-50%, -100%) rotate(90deg);
-}
-.bld-clock-center {
-  position: absolute; left: 50%; top: 50%;
-  width: 10px; height: 10px; border-radius: 50%;
-  background: #1a1a1a;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-}
+/* (تمّ نقل اسم المؤسسة إلى السقف الأحمر) */
 
 /* الباب الأزرق المزدوج */
 .bld-door {
@@ -837,10 +791,8 @@ html[data-theme="light"] .bld-outside { background: rgba(255,255,255,0.75); }
   .bld-wing-center .bld-section-grid { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); }
   .bld-name { font-size: 9px; }
   .bld-stats { font-size: 11px; gap: 8px; padding: 7px 14px; }
-  .bld-org-name { font-size: 17px; }
-  .bld-clock-face { width: 64px; height: 64px; }
-  .bld-clock-hand-h { height: 18px; }
-  .bld-clock-hand-m { height: 24px; }
+  .bld-roof-name { font-size: 16px; }
+  .bld-roof-center { min-height: 44px; width: 50%; }
   .bld-door { width: 64px; }
   .bld-flag { width: 22px; }
 }
@@ -848,5 +800,6 @@ html[data-theme="light"] .bld-outside { background: rgba(255,255,255,0.75); }
   .bld-wings { grid-template-columns: 1fr 1.6fr 1fr; }
   .bld-avatar { width: 32px; height: 32px; font-size: 12px; border-width: 2px; }
   .bld-name { font-size: 8px; }
-  .bld-org-name { font-size: 14px; }
+  .bld-roof-name { font-size: 13px; }
+  .bld-roof-center { width: 70%; }
 }
