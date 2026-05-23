@@ -569,6 +569,11 @@ function dashRefreshBuilding() {
   dashLoadBuilding();
 }
 
+// ============================================================================
+// VIEW: EMPLOYEES (list)
+// ============================================================================
+let _empAllEmps = [], _empTodayAtt = {};
+
 async function loadEmployeesView() {
   setHeader('الموظفون', 'إدارة قائمة الموظفين', `
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('csvImportInput').click()">📥 استيراد CSV</button>
