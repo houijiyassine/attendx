@@ -30,7 +30,7 @@ const api = {
   delete: (table, id) => fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
     method: 'DELETE',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-  }),
+  }).then(r => ({ ok: r.ok, status: r.status })),
 
   rpc: (fn, body) => fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: 'POST',
@@ -77,6 +77,7 @@ const auth = {
     return user;
   },
   logout: () => {
+    if (!confirm('هل تريد تسجيل الخروج؟')) return;
     localStorage.removeItem('attendx_user');
     sessionStorage.removeItem('attendx_user');
     localStorage.removeItem('attendx_prev_user');
