@@ -10,7 +10,7 @@
 //   • source:'device' في كل سجلات attendance (CHECK constraint)
 //   • معالجة device_commands عبر MQTT (بدل HTTP keepalive القديم)
 //   • ensureEmployee يضبط synced_to_device
-//   • raw_records.record_id فريد لتجنّب أخطاء UNIQUE
+//   • raw_records.external_id فريد لتجنّب أخطاء UNIQUE
 // ============================================================================
 
 const express = require('express');
@@ -28,8 +28,49 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('❌ Missing SUPABASE_URL or SUPABASE_SERVICE_KEY env vars');
+  console.error('');
+  console.error('═══════════════════════════════════════════════════════════');
+  console.error('❌ متغيّرات البيئة مفقودة!');
+  console.error('═══════════════════════════════════════════════════════════');
+  console.error('');
+  console.error('يجب إضافة في Railway → Variables:');
+  console.error('  1) SUPABASE_URL          = https://xxxx.supabase.co');
+  console.error('  2) SUPABASE_SERVICE_KEY  = eyJhbGc... (Service Role Key)');
+  console.error('');
+  console.error('احصل عليهم من: Supabase Dashboard → Settings → API');
+  console.error('═══════════════════════════════════════════════════════════');
   process.exit(1);
+}
+
+// التحقّق من صحّة الـ URL
+if (!/^https:\/\/[\w-]+\.supabase\.co\/?$/.test(SUPABASE_URL.replace(/\/$/, ''))) {
+  console.error('');
+  console.error('⚠️  SUPABASE_URL لا يبدو صحيحاً:');
+  console.error(`   ${SUPABASE_URL}`);
+  console.error('   يجب أن يكون بصيغة: https://xxxx.supabase.co');
+  console.error('');
+}
+
+// التحقّق من نوع الـ key
+// التحقّق من نوع الـ key
+// المفاتيح الصحيحة للـ backend:
+//   - sb_secret_xxx (Supabase الجديد، 2024+)
+//   - eyJhbGc... (JWT القديم — service_role)
+// المفاتيح غير الصحيحة:
+//   - sb_publishable_xxx (للـ frontend فقط)
+//   - anon-... (للـ frontend فقط)
+if (SUPABASE_KEY.startsWith('sb_publishable_') || SUPABASE_KEY.startsWith('anon-')) {
+  console.error('');
+  console.error('⚠️  تحذير: تستعمل publishable/anon key بدل secret key!');
+  console.error('   server.js يحتاج SUPABASE_SERVICE_KEY:');
+  console.error('     - sb_secret_xxx (Supabase الجديد)');
+  console.error('     - أو eyJhbGc... (JWT القديم)');
+  console.error('   احصل عليه من: Supabase → Settings → API → service_role / secret');
+  console.error('');
+} else if (SUPABASE_KEY.startsWith('sb_secret_')) {
+  console.log('✅ Using Supabase secret key (new format)');
+} else if (SUPABASE_KEY.startsWith('eyJ')) {
+  console.log('✅ Using Supabase JWT key (legacy format)');
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -148,8 +189,7 @@ async function ensureDevice(sn, ip, rawWorkSetting) {
 
   if (existing) {
     const upd = { last_seen: new Date().toISOString() };
-    if (ip) upd.ip = ip;
-    if (rawWorkSetting) upd.raw = rawWorkSetting;
+    if (ip) upd.ip_address = ip;
     supabase.from('devices').update(upd).eq('sn', sn).then(() => {});
     return existing;
   }
@@ -158,10 +198,9 @@ async function ensureDevice(sn, ip, rawWorkSetting) {
   const insert = {
     sn,
     org_id: orgId,
-    ip: ip || null,
+    ip_address: ip || null,
     last_seen: new Date().toISOString()
   };
-  if (rawWorkSetting) insert.raw = rawWorkSetting;
 
   const { data: newDev, error } = await supabase
     .from('devices')
@@ -213,8 +252,41 @@ async function ensureEmployee(orgId, code, name, dept) {
 // 3. حفظ الصور في Supabase Storage (bucket: attendance-photos)
 // ============================================================================
 
+// إنشاء bucket تلقائياً عند بداية التشغيل
+let _bucketReady = false;
+async function ensurePhotoBucket() {
+  if (_bucketReady) return true;
+  try {
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const exists = buckets && buckets.some(b => b.name === 'attendance-photos');
+    if (exists) {
+      console.log('✅ Storage bucket "attendance-photos" موجود');
+      _bucketReady = true;
+      return true;
+    }
+    // محاولة الإنشاء
+    const { error } = await supabase.storage.createBucket('attendance-photos', {
+      public: true,
+      fileSizeLimit: 52428800 // 50MB
+    });
+    if (error) {
+      console.log(`⚠️  لم نتمكّن من إنشاء bucket تلقائياً: ${error.message}`);
+      console.log('⚠️  يرجى إنشاء bucket "attendance-photos" يدوياً في Supabase Dashboard (Public)');
+      return false;
+    }
+    console.log('✅ Storage bucket "attendance-photos" تم إنشاؤه');
+    _bucketReady = true;
+    return true;
+  } catch (e) {
+    console.log(`⚠️  Storage check failed: ${e.message}`);
+    return false;
+  }
+}
+
 async function uploadPhoto(orgId, recordId, photoBuf) {
   if (!photoBuf || photoBuf.length < 100) return null;
+  if (!_bucketReady) await ensurePhotoBucket();
+  if (!_bucketReady) return null; // bucket غير موجود ولا يمكن إنشاؤه
 
   const photoPath = `${orgId}/${recordId}_${Date.now()}.jpg`;
   try {
@@ -246,7 +318,7 @@ async function saveRawRecord(orgId, recordId, empId, dateStr, timeStr, isEntry, 
   try {
     const row = {
       org_id: orgId || null,
-      record_id: recordId,
+      external_id: recordId,
       raw: rawObj
     };
     if (empId) row.emp_id = empId;
@@ -256,7 +328,7 @@ async function saveRawRecord(orgId, recordId, empId, dateStr, timeStr, isEntry, 
 
     const { error } = await supabase
       .from('raw_records')
-      .upsert([row], { onConflict: 'record_id' });
+      .upsert([row], { onConflict: 'external_id' });
     if (error) console.log(`   ⚠️  raw_records: ${error.message}`);
     else console.log(`   ✅ Saved to raw_records`);
   } catch (e) {
@@ -307,7 +379,12 @@ async function processAttendanceRecord(sn, body, photoBuf) {
     return { skipped: true, reason: 'no employee' };
   }
 
-  const dt = new Date(recordDate * 1000);
+  // معالجة الـ Timezone:
+  // - الأجهزة الصينية مثل FC-8890H عادة ترسل local time كـ Unix timestamp
+  // - DEVICE_TZ_OFFSET = ساعات للجهاز عن UTC (تونس = 1، السعودية = 3)
+  //   لو الجهاز يرسل UTC الحقيقي، اضبط على 0
+  const DEVICE_TZ_OFFSET = Number(process.env.DEVICE_TZ_OFFSET || 0);
+  const dt = new Date((recordDate + DEVICE_TZ_OFFSET * 3600) * 1000);
   const dateStr = dt.toISOString().slice(0, 10);
   const timeStr = dt.toISOString().slice(11, 19);
 
@@ -434,20 +511,25 @@ async function processPendingCommands(sn) {
   if (!commands || commands.length === 0) return;
 
   for (const cmd of commands) {
-    const payload = cmd.command_payload || {};
-    console.log(`   📦 Pending command: ${payload.type}`);
+    const payload = cmd.payload || {};
+    console.log(`   📦 Pending command: ${cmd.command} → ${payload.type || ''}`);
 
     await supabase
       .from('device_commands')
-      .update({ status: 'sent', sent_at: new Date().toISOString() })
+      .update({ status: 'sent' })
       .eq('id', cmd.id);
 
     try {
-      if (payload.type === 'add_person' || payload.type === 'sync_all_employees') {
+      // ندعم نوعين من التنسيق: cmd.command='sync_employee' أو payload.type='add_person'
+      const cmdType = cmd.command || payload.type;
+      const userId  = payload.emp_code || payload.UserID;
+
+      if (cmdType === 'sync_employee' || cmdType === 'add_person' || cmdType === 'sync_all_employees') {
         // جلب الموظفين وإرسالهم عبر PushPeople
         let empQuery = supabase.from('employees').select('*');
-        if (payload.type === 'add_person') {
-          empQuery = empQuery.eq('emp_code', String(payload.UserID));
+        if (cmdType === 'sync_employee' || cmdType === 'add_person') {
+          if (userId) empQuery = empQuery.eq('emp_code', String(userId));
+          else if (payload.emp_id) empQuery = empQuery.eq('id', payload.emp_id);
         } else {
           const { data: dev } = await supabase
             .from('devices').select('org_id').eq('sn', sn).maybeSingle();
@@ -464,19 +546,19 @@ async function processPendingCommands(sn) {
             .in('id', employees.map(e => e.id));
           console.log(`   👥 Pushed ${employees.length} employee(s) to ${sn}`);
         }
-      } else if (payload.type === 'delete_all_people') {
+      } else if (cmdType === 'delete_all_people') {
         sendRemoteCommand(sn, { ClearRecord: 0, DeleteAll: 1 });
-      } else if (payload.type === 'remote') {
+      } else if (cmdType === 'remote') {
         sendRemoteCommand(sn, payload.data || {});
       }
 
       await supabase.from('device_commands')
-        .update({ status: 'done' })
+        .update({ status: 'done', processed_at: new Date().toISOString() })
         .eq('id', cmd.id);
     } catch (e) {
       console.error(`   ❌ command ${cmd.id} failed: ${e.message}`);
       await supabase.from('device_commands')
-        .update({ status: 'failed' })
+        .update({ status: 'failed', processed_at: new Date().toISOString() })
         .eq('id', cmd.id);
     }
   }
@@ -640,6 +722,7 @@ aedes.on('publish', async (packet, client) => {
     }
   } catch (e) {
     console.error(`   ❌ Handler error for ${cmd}:`, e.message);
+    if (process.env.DEBUG) console.error(e.stack);
   }
 });
 
@@ -669,6 +752,7 @@ mqttServer.listen(MQTT_PORT, '0.0.0.0', async () => {
   console.log(`✅ MQTT broker listening on TCP ${MQTT_PORT}`);
   await ensureDefaultOrg();
   console.log(`📍 Default org_id: ${DEFAULT_ORG_ID}`);
+  await ensurePhotoBucket();
 });
 
 mqttServer.on('error', (err) =>
@@ -832,7 +916,7 @@ app.post('/api/otp/send', async (req, res) => {
       .delete().eq('phone', phone).eq('purpose', purpose);
 
     const { error } = await supabase.from('otp_codes').insert([{
-      phone, email, code, purpose, expires_at: expiresAt, verified: false
+      phone, email, code, purpose, expires_at: expiresAt, used: false
     }]);
     if (error) {
       console.log(`   ⚠️  otp insert: ${error.message}`);
@@ -886,7 +970,7 @@ app.post('/api/otp/verify', async (req, res) => {
     }
 
     await supabase.from('otp_codes')
-      .update({ verified: true }).eq('id', otp.id);
+      .update({ used: true }).eq('id', otp.id);
 
     return res.json({ success: true, email: otp.email });
   } catch (e) {
@@ -918,10 +1002,21 @@ Object.keys(SHIM_REDIRECTS).forEach(key => {
   app.get(`/${key}`, handler);
 });
 
-// Static files
+// Static files مع cache control
 app.use(express.static(path.join(__dirname), {
   extensions: ['html'],
-  index: 'auth.html'
+  index: 'auth.html',
+  setHeaders: (res, filePath) => {
+    // HTML files — no cache (دائماً نسخة جديدة)
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      // JS/CSS مع version query — يمكن cache لمدة قصيرة
+      res.setHeader('Cache-Control', 'public, max-age=300'); // 5 دقائق
+    }
+  }
 }));
 app.get('/', (req, res) => res.redirect('/auth.html'));
 
@@ -929,7 +1024,7 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not Found', path: req.url });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ HTTP server on port ${PORT}`);
   console.log(`🧭 Debug: /api/debug/devices  /api/debug/records  /api/debug/attendance  /api/debug/mqtt\n`);
 });
