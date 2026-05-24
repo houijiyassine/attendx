@@ -281,10 +281,12 @@ async function loadDashboardView() {
 
   const present = attArr.filter(a => a.status==='present' || a.status==='late').length;
   const late    = attArr.filter(a => a.status==='late').length;
+  const onLeave = attArr.filter(a => a.status==='leave').length;
   document.getElementById('statPresent').textContent = present;
   document.getElementById('statLate').textContent    = late;
   document.getElementById('statTotal').textContent   = empArr.length;
-  document.getElementById('statAbsent').textContent  = Math.max(0, empArr.length - present);
+  // غائب = الإجمالي − حاضر − في إجازة
+  document.getElementById('statAbsent').textContent  = Math.max(0, empArr.length - present - onLeave);
 
   // today table
   const tbody = document.getElementById('todayTable');
@@ -293,8 +295,8 @@ async function loadDashboardView() {
   } else {
     tbody.innerHTML = attArr.slice(0,30).map(a => `<tr>
       <td>${esc(a.employees?.name) || '—'}</td>
-      <td style="color:var(--text-muted)">${(a.check_in||'').slice(0,5) || '—'}</td>
-      <td style="color:var(--text-muted)">${(a.check_out||'').slice(0,5) || '—'}</td>
+      <td style="color:var(--text-muted)">${esc((a.check_in||'').slice(0,5)) || '—'}</td>
+      <td style="color:var(--text-muted)">${esc((a.check_out||'').slice(0,5)) || '—'}</td>
       <td>${statusBadge(a.status)}</td>
     </tr>`).join('');
   }
@@ -309,9 +311,9 @@ async function loadDashboardView() {
       <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-weight:600;font-size:13px">${esc(r.employees?.name) || '—'}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${r.is_entry ? '🟢 دخول' : '🔴 خروج'} · ${(r.record_time||'').slice(0,5)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${r.is_entry ? '🟢 دخول' : '🔴 خروج'} · ${esc((r.record_time||'').slice(0,5))}</div>
         </div>
-        <div style="font-size:11px;color:var(--text-dim)">${r.record_date}</div>
+        <div style="font-size:11px;color:var(--text-dim)">${esc(r.record_date)}</div>
       </div>
     `).join('');
   }
@@ -325,16 +327,17 @@ async function loadDashboardView() {
 async function dashRefreshAI() {
   const box = document.getElementById('aiBox');
   if (!box) return;
+  if (!orgId) { box.innerHTML = '<div style="color:var(--text-muted);padding:20px;text-align:center">لا توجد مؤسسة</div>'; return; }
   box.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)">جارٍ التحليل...</div>';
   try {
     const r = await api.rpc('ai_analytics', { p_org_id: orgId });
     if (!r) { box.innerHTML = '<div style="color:var(--text-muted)">لا توجد بيانات</div>'; return; }
     box.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div style="background:var(--surface3);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--text-muted)">📈 أكثر يوم حضوراً</div><div style="font-weight:600;font-size:14px;margin-top:2px">${r.peak_attendance_day || '—'}</div></div>
-        <div style="background:var(--surface3);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--text-muted)">📉 أكثر يوم غياباً</div><div style="font-weight:600;font-size:14px;margin-top:2px">${r.worst_absence_day || '—'}</div></div>
-        <div style="background:var(--surface3);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--text-muted)">⏰ ساعة الذروة</div><div style="font-weight:600;font-size:14px;margin-top:2px">${r.peak_checkin_hour !== null ? r.peak_checkin_hour + ':00' : '—'}</div></div>
-        <div style="background:var(--surface3);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--text-muted)">⏱ متوسط التأخير</div><div style="font-weight:600;font-size:14px;margin-top:2px">${r.avg_late_minutes !== null ? r.avg_late_minutes + ' د' : '—'}</div></div>
+        <div style="background:var(--surface3);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--text-muted)">📈 أكثر يوم حضوراً</div><div style="font-weight:600;font-size:14px;margin-top:2px">${esc(r.peak_attendance_day) || '—'}</div></div>
+        <div style="background:var(--surface3);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--text-muted)">📉 أكثر يوم غياباً</div><div style="font-weight:600;font-size:14px;margin-top:2px">${esc(r.worst_absence_day) || '—'}</div></div>
+        <div style="background:var(--surface3);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--text-muted)">⏰ ساعة الذروة</div><div style="font-weight:600;font-size:14px;margin-top:2px">${r.peak_checkin_hour !== null && r.peak_checkin_hour !== undefined ? esc(String(r.peak_checkin_hour)) + ':00' : '—'}</div></div>
+        <div style="background:var(--surface3);border-radius:8px;padding:11px"><div style="font-size:11px;color:var(--text-muted)">⏱ متوسط التأخير</div><div style="font-weight:600;font-size:14px;margin-top:2px">${r.avg_late_minutes !== null && r.avg_late_minutes !== undefined ? esc(String(r.avg_late_minutes)) + ' د' : '—'}</div></div>
       </div>`;
   } catch(e) { box.innerHTML = '<div style="color:var(--danger)">خطأ</div>'; }
 }
@@ -342,6 +345,7 @@ async function dashRefreshAI() {
 async function dashLoadTopEmps() {
   const box = document.getElementById('topEmpsBox');
   if (!box) return;
+  if (!orgId) { box.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">لا توجد مؤسسة</div>'; return; }
   try {
     const today = new Date();
     const from = new Date(today); from.setDate(today.getDate() - 30);
@@ -357,7 +361,7 @@ async function dashLoadTopEmps() {
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
         <div style="font-size:20px">${medals[i] || ''}</div>
         <div style="flex:1">
-          <a href="shell.html#employee/${e.emp_id}" style="font-weight:600;color:inherit;text-decoration:none">${esc(e.name) || '—'}</a>
+          <a href="shell.html#employee/${esc(e.emp_id)}" style="font-weight:600;color:inherit;text-decoration:none">${esc(e.name) || '—'}</a>
           <div style="font-size:11px;color:var(--text-muted)">${e.present_days||0} حاضر · ${e.late_days||0} تأخير · ${e.absent_days||0} غياب</div>
         </div>
         <div style="text-align:left">
@@ -390,6 +394,7 @@ function dashStartBuildingClock() {
 async function dashLoadBuilding() {
   const box = document.getElementById('buildingBox');
   if (!box) return;
+  if (!orgId) { box.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">لا توجد مؤسسة</div>'; return; }
 
   try {
     // 1) كل الموظفين + 2) حضور اليوم + 3) صور آخر pointage
@@ -631,10 +636,11 @@ function empRender(arr) {
   tbody.innerHTML = arr.map(e => {
     const att = _empTodayAtt[e.id];
     const color = '#3b82f6';
+    const safeId = esc(e.id);
     return `<tr>
       <td><code style="background:var(--surface3);padding:3px 8px;border-radius:5px;font-size:12px">${esc(e.emp_code)}</code></td>
       <td>
-        <a href="shell.html#employee/${e.id}" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit">
+        <a href="shell.html#employee/${safeId}" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit">
           <div style="width:34px;height:34px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${esc((e.name||'?')[0])}</div>
           <div style="font-weight:600">${esc(e.name)}</div>
         </a>
@@ -646,9 +652,9 @@ function empRender(arr) {
       <td>${e.synced_to_device ? '<span class="badge badge-success">مزامن ✓</span>' : '<span class="badge badge-warning">—</span>'}</td>
       <td>
         <div class="flex gap-8">
-          <a class="btn btn-accent btn-sm btn-icon" href="shell.html#employee/${e.id}" title="عرض">👁</a>
+          <a class="btn btn-accent btn-sm btn-icon" href="shell.html#employee/${safeId}" title="عرض">👁</a>
           <button class="btn btn-ghost btn-sm btn-icon" onclick='window.spa.empEdit(${jsonAttr(e)})'>✎</button>
-          <button class="btn btn-danger btn-sm btn-icon" onclick="window.spa.empDelete('${e.id}','${esc((e.name||'').replace(/['"\\]/g,''))}')">🗑</button>
+          <button class="btn btn-danger btn-sm btn-icon" onclick="window.spa.empDelete('${safeId}','${esc((e.name||'').replace(/['"\\]/g,''))}')">🗑</button>
         </div>
       </td>
     </tr>`;
@@ -727,7 +733,7 @@ async function empAdd() {
   const name = document.getElementById('addName').value.trim();
   const code = document.getElementById('addCode').value.trim();
   if (!name || !code) { toast.error('الاسم والكود مطلوبان'); return; }
-  const existing = await api.get('employees', `?org_id=eq.${orgId}&emp_code=eq.${code}`);
+  const existing = await api.get('employees', `?org_id=eq.${orgId}&emp_code=eq.${encodeURIComponent(code)}`);
   if (Array.isArray(existing) && existing.length) { toast.error('كود الموظف موجود مسبقاً'); return; }
 
   const wd = getPickerValue('addWorkDays');
@@ -804,11 +810,14 @@ function empEdit(e) {
 
 async function empSave() {
   const id = document.getElementById('editEmpId').value;
+  const name = document.getElementById('editName').value.trim();
+  const code = document.getElementById('editCode').value.trim();
+  if (!name || !code) return toast.error('الاسم والكود مطلوبان');
   const res = await api.patch('employees', id, {
-    name:        document.getElementById('editName').value,
-    emp_code:    document.getElementById('editCode').value,
-    dept:        document.getElementById('editDept').value,
-    phone:       document.getElementById('editPhone').value,
+    name,
+    emp_code:    code,
+    dept:        document.getElementById('editDept').value.trim() || null,
+    phone:       document.getElementById('editPhone').value.trim() || null,
     category:    document.getElementById('editCategory').value || null,
     shift_start: document.getElementById('editShift').value,
     shift_end:   document.getElementById('editShiftEnd').value,
@@ -821,9 +830,9 @@ async function empSave() {
 
 async function empDelete(id, name) {
   if (!confirm(`حذف ${name}؟`)) return;
-  await api.delete('employees', id);
-  toast.success('تم الحذف');
-  loadEmployeesView();
+  const r = await api.delete('employees', id);
+  if (r && r.ok) { toast.success('تم الحذف'); loadEmployeesView(); }
+  else toast.error('فشل الحذف');
 }
 
 function empExportCSV() {
@@ -957,8 +966,8 @@ function empDetailRender() {
               <div class="info-grid">
                 <div class="info-cell"><div class="info-cell-label">القسم</div><div class="info-cell-val">${esc(_emp.dept) || '—'}</div></div>
                 <div class="info-cell"><div class="info-cell-label">الهاتف</div><div class="info-cell-val">${esc(_emp.phone) || '—'}</div></div>
-                <div class="info-cell"><div class="info-cell-label">بداية الدوام</div><div class="info-cell-val">${(_emp.shift_start||'08:00').slice(0,5)}</div></div>
-                <div class="info-cell"><div class="info-cell-label">نهاية الدوام</div><div class="info-cell-val">${(_emp.shift_end||'16:00').slice(0,5)}</div></div>
+                <div class="info-cell"><div class="info-cell-label">بداية الدوام</div><div class="info-cell-val">${esc((_emp.shift_start||'08:00').slice(0,5))}</div></div>
+                <div class="info-cell"><div class="info-cell-label">نهاية الدوام</div><div class="info-cell-val">${esc((_emp.shift_end||'16:00').slice(0,5))}</div></div>
               </div>
             </div>
             <div style="display:flex;flex-direction:column;gap:8px" class="no-print">
@@ -1034,19 +1043,19 @@ function empRenderDayRow(date, dayLabel, att, isWork) {
       const left  = (inMin / 1440) * 100;
       const width = Math.max(((outMin - inMin) / 1440) * 100, 0.4);
       actualBar = `<div class="timeline-bar-actual" style="right:${left}%;width:${width}%"></div>
-        <div class="timeline-label" style="right:${left}%;top:42px">${att.check_in.slice(0,5)}</div>
-        <div class="timeline-label" style="right:${(outMin/1440)*100}%;top:42px">${att.check_out.slice(0,5)}</div>`;
+        <div class="timeline-label" style="right:${left}%;top:42px">${esc(att.check_in.slice(0,5))}</div>
+        <div class="timeline-label" style="right:${(outMin/1440)*100}%;top:42px">${esc(att.check_out.slice(0,5))}</div>`;
     } else if (inMin !== null) {
       const left = (inMin / 1440) * 100;
       actualBar = `<div class="timeline-bar-actual" style="right:${left}%;width:1.5%"></div>
-        <div class="timeline-label" style="right:${left}%;top:42px">${att.check_in.slice(0,5)}</div>`;
+        <div class="timeline-label" style="right:${left}%;top:42px">${esc(att.check_in.slice(0,5))}</div>`;
     }
 
     const realIn  = att.check_in  ? timeToMin(att.check_in)  : null;
     const realOut = att.check_out ? timeToMin(att.check_out) : null;
     const lateIn   = realIn  !== null ? realIn  - startMin : null;
     const earlyOut = realOut !== null ? endMin - realOut   : null;
-    let s = `<strong>دخول:</strong> ${att.check_in ? att.check_in.slice(0,5) : '—'}<br><strong>خروج:</strong> ${att.check_out ? att.check_out.slice(0,5) : '—'}<br>`;
+    let s = `<strong>دخول:</strong> ${att.check_in ? esc(att.check_in.slice(0,5)) : '—'}<br><strong>خروج:</strong> ${att.check_out ? esc(att.check_out.slice(0,5)) : '—'}<br>`;
     if (lateIn !== null) s += lateIn > 0 ? `<span class="late-text">⏰ متأخر ${lateIn} د</span><br>` : `<span class="early-text">✓ في الموعد</span><br>`;
     if (earlyOut !== null) s += earlyOut > 0 ? `<span class="late-text">🚪 خروج مبكر ${earlyOut} د</span>` : `<span class="early-text">✓ خروج كامل</span>`;
     summary = s;
@@ -1187,6 +1196,7 @@ function empEditAtt(att) {
 
 async function empAttSave() {
   const id = document.getElementById('attId').value;
+  if (!id) return toast.error('سجل غير موجود');
   const cin = document.getElementById('attIn').value || null;
   const cout = document.getElementById('attOut').value || null;
   const bs = document.getElementById('attBrkS').value || null;
@@ -1205,10 +1215,9 @@ async function empAttSave() {
 
 async function empAttDel() {
   if (!confirm('حذف السجل؟')) return;
-  await api.delete('attendance', document.getElementById('attId').value);
-  toast.success('حُذف');
-  closeModal('editAttModal');
-  loadEmployeeView({id: _emp.id});
+  const r = await api.delete('attendance', document.getElementById('attId').value);
+  if (r && r.ok) { toast.success('حُذف'); closeModal('editAttModal'); loadEmployeeView({id: _emp.id}); }
+  else toast.error('فشل الحذف');
 }
 
 function loadScript(src) {
@@ -1224,6 +1233,7 @@ async function empDetailPDF() {
   try {
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    if (!window.html2canvas || !window.jspdf) throw new Error('libs not loaded');
     const el = document.getElementById('viewHost');
     const canvas = await html2canvas(el, { backgroundColor:'#0a0f1e', scale: 2 });
     const img = canvas.toDataURL('image/png');
@@ -1233,7 +1243,10 @@ async function empDetailPDF() {
     pdf.addImage(img, 'PNG', 0, 0, w, (canvas.height * w) / canvas.width);
     pdf.save(`${(_emp.name||'employee').replace(/[^a-zA-Z0-9_\u0600-\u06FF-]/g,'_')}_${fmtDate(new Date())}.pdf`);
     toast.success('تم');
-  } catch(e) { toast.error('فشل'); }
+  } catch(e) {
+    console.error('PDF error:', e);
+    toast.error('فشل التصدير — تحقق من الاتصال بالإنترنت');
+  }
 }
 
 function empDetailWord() {
@@ -1387,9 +1400,9 @@ function absRender(rows, daysCount) {
   tbody.innerHTML = rows.map(r => {
     const dow = new Date(r.date).getDay();
     return `<tr>
-      <td style="font-weight:600">${r.date}</td>
-      <td style="color:var(--text-muted)">${DAY_NAMES[dow]}</td>
-      <td><a href="shell.html#employee/${r.emp.id}" style="font-weight:600;color:inherit;text-decoration:none">${esc(r.emp.name) || '—'}</a><div style="font-size:11px;color:var(--text-muted)">${esc(r.emp.emp_code)}</div></td>
+      <td style="font-weight:600">${esc(r.date)}</td>
+      <td style="color:var(--text-muted)">${DAY_NAMES[dow] || '—'}</td>
+      <td><a href="shell.html#employee/${esc(r.emp.id)}" style="font-weight:600;color:inherit;text-decoration:none">${esc(r.emp.name) || '—'}</a><div style="font-size:11px;color:var(--text-muted)">${esc(r.emp.emp_code)}</div></td>
       <td>${categoryBadge(r.emp.category)}</td>
       <td style="color:var(--text-muted)">${esc(r.emp.dept) || '—'}</td>
       <td style="color:var(--text-muted);font-size:13px">${esc(r.emp.phone) || '—'}</td>
@@ -1480,16 +1493,18 @@ function lvRender() {
   if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">لا توجد طلبات</div></div></td></tr>'; return; }
   tbody.innerHTML = filtered.map(l => {
     const days = Math.floor((new Date(l.date_to) - new Date(l.date_from)) / 86400000) + 1;
+    const safeId = esc(l.id);
+    const safeEmpId = esc(l.emp_id);
     return `<tr>
-      <td><a href="shell.html#employee/${l.emp_id}" style="color:inherit;font-weight:600;text-decoration:none">${esc(l.employees?.name) || '—'}</a></td>
-      <td><span class="badge badge-info">${TYPE_LBL[l.type] || l.type}</span></td>
-      <td>${l.date_from}</td><td>${l.date_to}</td>
+      <td><a href="shell.html#employee/${safeEmpId}" style="color:inherit;font-weight:600;text-decoration:none">${esc(l.employees?.name) || '—'}</a></td>
+      <td><span class="badge badge-info">${esc(TYPE_LBL[l.type] || l.type)}</span></td>
+      <td>${esc(l.date_from)}</td><td>${esc(l.date_to)}</td>
       <td style="font-weight:600">${days} يوم</td>
       <td style="color:var(--text-muted);font-size:13px">${esc(l.reason) || '—'}</td>
-      <td>${STATUS[l.status] || l.status}</td>
+      <td>${STATUS[l.status] || esc(l.status)}</td>
       <td><div class="flex gap-8">
-        ${l.status === 'pending' ? `<button class="btn btn-success btn-sm btn-icon" onclick="window.spa.lvSetStatus('${l.id}','approved')">✓</button><button class="btn btn-danger btn-sm btn-icon" onclick="window.spa.lvSetStatus('${l.id}','rejected')">✕</button>` : ''}
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="window.spa.lvDelete('${l.id}')">🗑</button>
+        ${l.status === 'pending' ? `<button class="btn btn-success btn-sm btn-icon" onclick="window.spa.lvSetStatus('${safeId}','approved')">✓</button><button class="btn btn-danger btn-sm btn-icon" onclick="window.spa.lvSetStatus('${safeId}','rejected')">✕</button>` : ''}
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="window.spa.lvDelete('${safeId}')">🗑</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -1556,6 +1571,8 @@ async function lvSetStatus(id, status) {
 }
 
 async function lvMarkDays(lv) {
+  if (!lv.date_from || !lv.date_to) return;
+  if (lv.date_to < lv.date_from) return; // حماية من البيانات الخاطئة
   const p = lv.date_from.split('-').map(Number);
   let y=p[0], m=p[1], d=p[2];
   const ep = lv.date_to.split('-').map(Number);
@@ -1573,9 +1590,9 @@ async function lvMarkDays(lv) {
 
 async function lvDelete(id) {
   if (!confirm('حذف؟')) return;
-  await api.delete('leaves', id);
-  toast.success('حُذف');
-  loadLeavesView();
+  const r = await api.delete('leaves', id);
+  if (r && r.ok) { toast.success('حُذف'); loadLeavesView(); }
+  else toast.error('فشل الحذف');
 }
 
 // ============================================================================
@@ -1606,14 +1623,14 @@ async function loadHolidaysView() {
     const t = TYPE[h.type] || TYPE.custom;
     const dow = new Date(h.date).getDay();
     return `<tr>
-      <td style="font-weight:600">${h.date}</td>
-      <td style="color:var(--text-muted)">${DAY_NAMES[dow]}</td>
+      <td style="font-weight:600">${esc(h.date)}</td>
+      <td style="color:var(--text-muted)">${DAY_NAMES[dow] || '—'}</td>
       <td>${esc(h.name)}</td>
-      <td><span class="badge" style="background:${t.c}22;color:${t.c}">${t.l}</span></td>
+      <td><span class="badge" style="background:${t.c}22;color:${t.c}">${esc(t.l)}</span></td>
       <td>${h.is_paid ? '<span class="badge badge-success">نعم</span>' : '<span class="badge badge-warning">لا</span>'}</td>
       <td><div class="flex gap-8">
         <button class="btn btn-ghost btn-sm btn-icon" onclick='window.spa.holEdit(${jsonAttr(h)})'>✎</button>
-        <button class="btn btn-danger btn-sm btn-icon" onclick="window.spa.holDelete('${h.id}')">🗑</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="window.spa.holDelete('${esc(h.id)}')">🗑</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -1675,9 +1692,9 @@ async function holSave() {
 
 async function holDelete(id) {
   if (!confirm('حذف؟')) return;
-  await api.delete('holidays', id);
-  toast.success('حُذف');
-  loadHolidaysView();
+  const r = await api.delete('holidays', id);
+  if (r && r.ok) { toast.success('حُذف'); loadHolidaysView(); }
+  else toast.error('فشل الحذف');
 }
 
 // ============================================================================
@@ -1723,18 +1740,20 @@ function alRender() {
   const box = document.getElementById('alList');
   if (!filt.length) { box.innerHTML = '<div class="empty-state"><div class="empty-icon">🔕</div><div class="empty-title">لا توجد تنبيهات</div></div>'; return; }
   const ICONS = {info:'ℹ️',warning:'⚠️',danger:'🚨'};
-  box.innerHTML = filt.map(a => `
-    <div class="alert-row ${!a.is_read ? 'unread' : ''}" onclick="window.spa.alMarkRead('${a.id}')">
+  box.innerHTML = filt.map(a => {
+    const safeId = esc(a.id);
+    return `
+    <div class="alert-row ${!a.is_read ? 'unread' : ''}" onclick="window.spa.alMarkRead('${safeId}')">
       ${!a.is_read ? '<div class="unread-dot"></div>' : '<div style="width:8px;flex-shrink:0"></div>'}
-      <div class="alert-icon ${a.severity}">${ICONS[a.severity] || 'ℹ️'}</div>
+      <div class="alert-icon ${esc(a.severity)}">${ICONS[a.severity] || 'ℹ️'}</div>
       <div class="alert-content">
         <div class="alert-title">${esc(a.title)}</div>
         <div class="alert-msg">${esc(a.message) || ''}</div>
-        <div class="alert-time">${new Date(a.created_at).toLocaleString('ar-TN')}</div>
+        <div class="alert-time">${esc(new Date(a.created_at).toLocaleString('ar-TN'))}</div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();window.spa.alDelete('${a.id}')">🗑</button>
-    </div>
-  `).join('');
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();window.spa.alDelete('${safeId}')">🗑</button>
+    </div>`;
+  }).join('');
 }
 
 async function alMarkRead(id) {
@@ -1752,9 +1771,9 @@ async function alMarkAllRead() {
 }
 
 async function alDelete(id) {
-  await api.delete('alerts', id);
-  toast.success('حُذف');
-  loadAlertsView();
+  const r = await api.delete('alerts', id);
+  if (r && r.ok) { toast.success('حُذف'); loadAlertsView(); }
+  else toast.error('فشل الحذف');
 }
 
 async function alRunCheck() {
@@ -1806,7 +1825,7 @@ async function auLoad() {
   const list = await api.get('audit_log', q);
   _auditAll = Array.isArray(list) ? list : [];
   const acts = [...new Set(_auditAll.map(l => l.action).filter(Boolean))];
-  document.getElementById('auAct').innerHTML = '<option value="">كل الإجراءات</option>' + acts.map(a => `<option>${a}</option>`).join('');
+  document.getElementById('auAct').innerHTML = '<option value="">كل الإجراءات</option>' + acts.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
   auRender();
 }
 
@@ -1818,7 +1837,7 @@ function auRender() {
   const tbody = document.getElementById('auTable');
   if (!f.length) { tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">لا توجد سجلات</div></div></td></tr>'; return; }
   tbody.innerHTML = f.map(l => `<tr>
-    <td style="white-space:nowrap;font-family:monospace;font-size:12px">${new Date(l.created_at).toLocaleString('ar-TN')}</td>
+    <td style="white-space:nowrap;font-family:monospace;font-size:12px">${esc(new Date(l.created_at).toLocaleString('ar-TN'))}</td>
     <td>${esc(l.user_name) || '—'}</td>
     <td><span class="badge badge-info">${esc(l.action)}</span></td>
     <td style="color:var(--text-muted);font-size:13px">${esc(l.entity) || '—'}</td>
@@ -1879,11 +1898,11 @@ function attRender() {
   const tbody = document.getElementById('attTable');
   if (!f.length) { tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">لا توجد سجلات</div></div></td></tr>'; return; }
   tbody.innerHTML = f.map(a => `<tr>
-    <td>${a.date}</td>
-    <td><a href="shell.html#employee/${a.emp_id}" style="color:inherit;font-weight:600;text-decoration:none">${esc(a.employees?.name) || '—'}</a></td>
+    <td>${esc(a.date)}</td>
+    <td><a href="shell.html#employee/${esc(a.emp_id)}" style="color:inherit;font-weight:600;text-decoration:none">${esc(a.employees?.name) || '—'}</a></td>
     <td style="color:var(--text-muted)">${esc(a.employees?.dept) || '—'}</td>
-    <td style="color:var(--text-muted)">${(a.check_in||'').slice(0,5)||'—'}</td>
-    <td style="color:var(--text-muted)">${(a.check_out||'').slice(0,5)||'—'}</td>
+    <td style="color:var(--text-muted)">${esc((a.check_in||'').slice(0,5)) || '—'}</td>
+    <td style="color:var(--text-muted)">${esc((a.check_out||'').slice(0,5)) || '—'}</td>
     <td>${statusBadge(a.status)}</td>
   </tr>`).join('');
 }
@@ -1932,7 +1951,7 @@ async function repLoad() {
       <div class="table-wrap"><table>
         <thead><tr><th>الموظف</th><th>الفئة</th><th>القسم</th><th>حضور</th><th>تأخير</th><th>غياب</th><th>نسبة</th><th>درجة</th></tr></thead>
         <tbody>${arr.map(e => `<tr>
-          <td><a href="shell.html#employee/${e.emp_id}" style="color:inherit;font-weight:600;text-decoration:none">${esc(e.name) || '—'}</a></td>
+          <td><a href="shell.html#employee/${esc(e.emp_id)}" style="color:inherit;font-weight:600;text-decoration:none">${esc(e.name) || '—'}</a></td>
           <td>${categoryBadge(e.category)}</td>
           <td style="color:var(--text-muted)">${esc(e.dept) || '—'}</td>
           <td>${e.present_days||0}</td><td>${e.late_days||0}</td><td>${e.absent_days||0}</td>
@@ -1962,8 +1981,9 @@ async function loadDeviceView() {
               return `<div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px">
                 <div style="display:flex;justify-content:space-between;align-items:center">
                   <div>
-                    <div style="font-weight:600;font-family:monospace">${d.sn}</div>
-                    <div style="font-size:12px;color:var(--text-muted)">آخر اتصال: ${d.last_seen ? new Date(d.last_seen).toLocaleString('ar-TN') : '—'}</div>
+                    <div style="font-weight:600;font-family:monospace">${esc(d.sn||'')}</div>
+                    <div style="font-size:12px;color:var(--text-muted)">آخر اتصال: ${d.last_seen ? esc(new Date(d.last_seen).toLocaleString('ar-TN')) : '—'}</div>
+                    ${d.ip_address ? `<div style="font-size:11px;color:var(--text-muted);font-family:monospace">IP: ${esc(d.ip_address)}</div>` : ''}
                   </div>
                   <span class="badge ${online?'badge-success':'badge-danger'}">${online?'🟢 متصل':'🔴 غير متصل'}</span>
                 </div>
@@ -2104,6 +2124,8 @@ function saRender() {
     const empN = (o.employees || []).length;
     const dev = (o.devices || [])[0];
     const online = dev && dev.last_seen && (Date.now() - new Date(dev.last_seen).getTime() < 5*60*1000);
+    const safeOrgId = esc(o.id);
+    const safeOrgName = esc((o.name||'').replace(/['"\\]/g,''));
     return `<tr>
       <td><div style="font-weight:600">${esc(o.name)}</div><div style="font-size:11px;color:var(--text-muted)">${esc(o.code) || '—'}</div></td>
       <td>${esc(mgr ? mgr.name : '—')}</td>
@@ -2112,9 +2134,9 @@ function saRender() {
       <td>${dev ? (online?'<span class="badge badge-success">🟢</span>':'<span class="badge badge-danger">🔴</span>') : '—'}</td>
       <td><span class="badge ${o.status==='active'?'badge-success':'badge-warning'}">${esc(o.status)||'—'}</span></td>
       <td><div class="flex gap-8">
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="window.spa.saLoginAs('${o.id}','${esc((o.name||'').replace(/['"\\]/g,''))}')" title="دخول كمدير">👁</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="window.spa.saLoginAs('${safeOrgId}','${safeOrgName}')" title="دخول كمدير">👁</button>
         <button class="btn btn-ghost btn-sm btn-icon" onclick='window.spa.saEditOrg(${jsonAttr(o)})'>✎</button>
-        <button class="btn btn-danger btn-sm btn-icon" onclick="window.spa.saDelOrg('${o.id}','${esc((o.name||'').replace(/['"\\]/g,''))}')">🗑</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="window.spa.saDelOrg('${safeOrgId}','${safeOrgName}')">🗑</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -2193,11 +2215,14 @@ function saEditOrg(o) {
 async function saSaveOrg() {
   const id = document.getElementById('saoId').value;
   const mgrId = document.getElementById('saoMgrId').value;
-  await api.patch('organizations', id, {
-    name: document.getElementById('saeName').value,
-    address: document.getElementById('saeAddr').value,
+  const newName = document.getElementById('saeName').value.trim();
+  if (!newName) return toast.error('اسم المؤسسة مطلوب');
+  const updRes = await api.patch('organizations', id, {
+    name: newName,
+    address: document.getElementById('saeAddr').value.trim() || null,
     status: document.getElementById('saeStatus').value
   });
+  if (!Array.isArray(updRes)) { toast.error('فشل تحديث المؤسسة'); return; }
   const np = document.getElementById('saeNewPhone').value.trim();
   const npass = document.getElementById('saeNewPass').value;
   if ((np || npass) && mgrId) {
@@ -2213,28 +2238,35 @@ async function saSaveOrg() {
 
 async function saDelOrg(id, name) {
   if (!confirm(`حذف ${name}؟ سيُحذف كل ما يتعلق بها.`)) return;
-  await api.delete('organizations', id);
-  toast.success('حُذف');
-  loadSuperadminView();
+  const r = await api.delete('organizations', id);
+  if (r && r.ok) { toast.success('حُذف'); loadSuperadminView(); }
+  else toast.error('فشل الحذف');
 }
 
 function saLoginAs(targetOrgId, targetOrgName) {
   const cur = auth.get();
   localStorage.setItem('attendx_prev_user', JSON.stringify(cur));
   auth.set({ ...cur, viewing_org: targetOrgId, org_name: targetOrgName, _isSAProxy: true });
-  window.location.href = 'shell.html#dashboard';
-  setTimeout(() => location.reload(), 100);
+  // نستعمل replace لتفادي مشكلة الـ back button + reload immediate
+  window.location.replace('shell.html#dashboard');
+  setTimeout(() => location.reload(), 50);
 }
 
 function backToSA() {
   const prev = localStorage.getItem('attendx_prev_user');
   if (prev) {
-    try { auth.set(JSON.parse(prev)); }
+    try {
+      const prevObj = JSON.parse(prev);
+      // نمسح أي بقايا من proxy mode
+      delete prevObj.viewing_org;
+      delete prevObj._isSAProxy;
+      auth.set(prevObj);
+    }
     catch(e) { localStorage.setItem('attendx_user', prev); }
     localStorage.removeItem('attendx_prev_user');
   }
-  window.location.href = 'shell.html#superadmin';
-  setTimeout(() => location.reload(), 100);
+  window.location.replace('shell.html#superadmin');
+  setTimeout(() => location.reload(), 50);
 }
 
 // ============================================================================
@@ -2266,5 +2298,10 @@ Object.assign(window.spa, {
 // SPA INIT — Start the router AFTER all functions are defined
 // ============================================================================
 routeFromHash();
-window.addEventListener('hashchange', () => routeFromHash());
-window.addEventListener('popstate', () => routeFromHash()); // back/forward buttons
+// popstate يلتقط back/forward + hashchange بشكل موحّد
+window.addEventListener('popstate', () => routeFromHash());
+// hashchange يلتقط الضغط على روابط #
+window.addEventListener('hashchange', (e) => {
+  // نتفادى double-fire لو popstate أطلق توّاً
+  if (e.oldURL !== e.newURL) routeFromHash();
+});
